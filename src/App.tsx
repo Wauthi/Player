@@ -243,7 +243,7 @@ export default function Player() {
           } sm:hidden hover:text-red-600 hover:scale-110 transition-transform duration-200`}
           onClick={() => setIsQueueOpen(true)}>
           <ChevronLeft className="w-5 h-5 -rotate-270" />
-          <span className="tracking-widest">Queue </span>
+          {/* <span className="tracking-widest">Queue </span> */}
         </button>
       )}
 
