@@ -13,6 +13,8 @@ import {
   Repeat,
   Heart,
   Repeat1,
+  ChevronLeft,
+  X,
 } from "lucide-react";
 import { songs } from "./lib/songs";
 
@@ -24,9 +26,20 @@ export default function Player() {
   const [shuffle, setShuffle] = useState(false);
   const [likedSongs, setLikedSongs] = useState<Set<number>>(new Set());
   const [repeat, setRepeat] = useState<"off" | "one" | "all">("off");
+  const [isQueueOpen, setIsQueueOpen] = useState(false); // ✅ NEW
+  const [volume, setVolumeState] = useState(1);
   const audioRef = useRef<HTMLAudioElement>(null);
   const currentSong = songs[currentIndex];
-  const [volume, setVolumeState] = useState(1);
+
+  const [bounceAnimation, setBounceAnimation] = useState(true);
+  useEffect(() => {
+    if (!isPlaying) {
+      setBounceAnimation(true);
+      const timer = setTimeout(() => setBounceAnimation(false), 7500);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -35,7 +48,6 @@ export default function Player() {
     } else {
       audioRef.current.play();
     }
-    // setIsPlaying(!isPlaying);
   };
 
   const toggleLike = () => {
@@ -81,18 +93,25 @@ export default function Player() {
         setIsPlaying(true);
         return next;
       });
-    } else {
-      setCurrentIndex((i) => {
-        let next;
-        if (repeat === "all") {
-          next = (i + 1) % songs.length;
-        } else {
-          next = i + 1 < songs.length ? i + 1 : i;
-        }
-        setIsPlaying(true);
-        return next;
-      });
+      return;
     }
+
+    setCurrentIndex((i) => {
+      const isLast = i === songs.length - 1;
+
+      if (isLast) {
+        if (repeat === "all") {
+          setIsPlaying(true);
+          return 0;
+        } else if (repeat === "off") {
+          setIsPlaying(false);
+          return i;
+        }
+      }
+
+      setIsPlaying(true);
+      return i + 1;
+    });
   }, [repeat, shuffle, getRandomIndex]);
 
   useEffect(() => {
@@ -153,6 +172,7 @@ export default function Player() {
       audioRef.current.volume = newVolume;
     }
   };
+
   useEffect(() => {
     if (!audioRef.current) return;
 
@@ -188,9 +208,86 @@ export default function Player() {
     );
   };
 
+  // Touch gesture handlers
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    const distance = touchStartX.current - touchEndX.current;
+    if (distance > 70) {
+      setIsQueueOpen(true);
+    } else if (distance < -70) {
+      setIsQueueOpen(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col md:flex-row h-screen overflow-hidden">
-      {/* Queue */}
+    <div
+      className="caret-transparent flex flex-col md:flex-row h-screen overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}>
+      {/* Mobile Queue Toggle Button */}
+      {!isQueueOpen && (
+        <button
+          className={`cursor-pointer fixed right-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-1 -rotate-90 text-red-900 font-bold px-3 py-2 rounded-full ${
+            bounceAnimation ? "animate-bounce" : ""
+          } sm:hidden hover:text-red-600 hover:scale-110 transition-transform duration-200`}
+          onClick={() => setIsQueueOpen(true)}>
+          <ChevronLeft className="w-5 h-5 -rotate-270" />
+          <span className="tracking-widest">Queue </span>
+        </button>
+      )}
+
+      {/*Mobile Slide-In Queue */}
+      <div
+        className={`fixed top-0 bottom-0 right-0 w-3/4 sm:hidden bg-gradient-to-br from-yellow-100 via-red-200 to-red-400 text-red-900 p-6 border-l border-red-900 rounded-l-2xl shadow-2xl z-50 transform transition-transform duration-300 ${
+          isQueueOpen ? "translate-x-0" : "translate-x-full"
+        }`}>
+        <div className="relative w-full flex justify-between items-center mb-6 border-b border-red-300 pb-1">
+          <h2 className="cursor-default text-xl font-bold tracking-wide">
+            Queue
+          </h2>
+          <button
+            onClick={() => setIsQueueOpen(false)}
+            className=" text-red-900 font-bold cursor-pointer hover:text-red-600 hover:scale-110 transition-transform duration-200">
+            <X size={24} />
+          </button>
+        </div>
+        <ul className="space-y-3 h-full overflow-y-auto pr-2">
+          {songs.map((song, index) => (
+            <li
+              key={index}
+              onClick={() => {
+                setCurrentIndex(index);
+                setTimeout(() => {
+                  audioRef.current?.play();
+                }, 100);
+                setIsQueueOpen(false);
+              }}
+              className={`p-3 rounded-lg transition-all duration-300 cursor-pointer ${
+                index === currentIndex
+                  ? "bg-yellow-400 text-black font-semibold shadow-md"
+                  : "bg-white/20 hover:bg-white/70"
+              }`}>
+              <div className="text-sm tracking-wide">
+                {song.title}
+              </div>
+              <div className="text-xs text-red-700">{song.artist}</div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/*Desktop Queue */}
       <div className="hidden md:flex md:w-1/2 flex-col justify-between bg-gradient-to-br from-yellow-100 via-red-200 to-red-400 text-red-900 p-6 border-red-900 rounded-2xl shadow-2xl">
         <div className="z-10 relative mb-6 flex-1 overflow-hidden">
           <h2 className="text-2xl font-bold tracking-wide mb-4 border-b border-red-300 pb-2">
@@ -204,7 +301,6 @@ export default function Player() {
                   setCurrentIndex(index);
                   setTimeout(() => {
                     audioRef.current?.play();
-                    // setIsPlaying(true);
                   }, 100);
                 }}
                 className={`p-3 rounded-lg transition-all duration-300 cursor-pointer ${
@@ -212,7 +308,7 @@ export default function Player() {
                     ? "bg-yellow-400 text-black font-semibold shadow-md"
                     : "bg-white/20 hover:bg-white/70"
                 }`}>
-                <div className="text-sm uppercase tracking-wide">
+                <div className="text-sm tracking-wide">
                   {song.title}
                 </div>
                 <div className="text-xs text-red-700">{song.artist}</div>
@@ -232,8 +328,10 @@ export default function Player() {
                   ? "-translate-y-full opacity-0"
                   : "translate-y-0 opacity-100"
               }`}>
-              <div className="text-red-900 font-bold text-xl">Doba Player</div>
-              <div className="text-base text-red-700 font-semibold">
+              <div className="text-red-900 font-bold text-xl cursor-default">
+                Doba Player
+              </div>
+              <div className="text-base text-red-700 font-semibold cursor-default">
                 {currentSong.artist}
               </div>
             </div>
@@ -243,8 +341,10 @@ export default function Player() {
                   ? "translate-y-0 opacity-100"
                   : "translate-y-full opacity-0"
               }`}>
-              <div className="text-red-900 font-bold text-xl">Now Playing:</div>
-              <div className="text-base text-red-700 font-semibold">
+              <div className="text-red-900 font-bold text-xl cursor-default">
+                Now Playing:
+              </div>
+              <div className="text-base text-red-700 font-semibold cursor-default">
                 {currentSong.title}
               </div>
             </div>
@@ -253,11 +353,13 @@ export default function Player() {
 
         <div
           className={`p-4 md:p-8 lg:p-6 w-40 h-40 mx-auto rounded-full border-8 border-yellow-400 bg-red-600 flex items-center justify-center text-white text-xl font-bold shadow-inner transition-transform duration-500 ${
-            isPlaying ? "scale-105 animate-pulse" : "scale-100"
+            isPlaying
+              ? "scale-105 animate-pulse cursor-default"
+              : "scale-100 cursor-default"
           }`}>
           Ngoma
         </div>
-        <div className="text-center mt-6 mb-4">
+        <div className="text-center mt-6 mb-4 cursor-default">
           <div className="text-center mt-4 text-xl text-red-800 font-semibold">
             {currentSong.title}
           </div>
@@ -289,7 +391,7 @@ export default function Player() {
             step="0.1"
             value={progress}
             onChange={handleSliderChange}
-            className="w-1/2 h-2 rounded-full bg-amber-100 appearance-none accent-yellow-200 outline-none cursor-grab"
+            className="w-3/4 h-2 rounded-full bg-amber-100 appearance-none accent-yellow-200 outline-none cursor-grab"
             style={{
               background: `linear-gradient(to right, #fde68a 0%, #fde68a ${progress}%, #fcd34d ${progress}%, #fef3c7 100%)`,
               boxShadow: "inset 0 0 2px #fef3c7",
@@ -312,7 +414,6 @@ export default function Player() {
               title="Previous">
               <SkipBack size={28} />
             </button>
-
             <button
               className={`p-2 rounded-full cursor-pointer transition-colors duration-300 ${
                 shuffle
@@ -324,12 +425,22 @@ export default function Player() {
               title="Shuffle">
               <Shuffle size={28} />
             </button>
-
+            <button
+              className={`p-2 rounded-full cursor-pointer transition-colors duration-300 ${
+                likedSongs.has(currentIndex)
+                  ? "bg-yellow-600 text-white hover:bg-yellow-700"
+                  : "text-yellow-700 hover:text-yellow-500"
+              }`}
+              onClick={toggleLike}
+              aria-label="Like"
+              title="Like">
+              <Heart size={24} />
+            </button>
             <button
               className={`p-2 rounded-full cursor-pointer transition-colors duration-300 ${
                 repeat !== "off"
-                  ? "bg-yellow-600 text-white hover:bg-yellow-700"
-                  : "text-yellow-700 hover:text-yellow-500"
+                  ? "bg-red-700 text-white hover:bg-red-800"
+                  : "text-red-800 hover:text-red-600"
               }`}
               onClick={cycleRepeat}
               aria-label="Repeat Mode"
@@ -339,21 +450,9 @@ export default function Player() {
               ) : (
                 <Repeat
                   size={24}
-                  className={repeat === "all" ? "opacity-100" : "opacity-50"}
+                  className={repeat === "all" ? "opacity-100" : "opacity-100"}
                 />
               )}
-            </button>
-
-            <button
-              className={`p-2 rounded-full cursor-pointer transition-colors duration-300 ${
-                likedSongs.has(currentIndex)
-                  ? "bg-red-700 text-white hover:bg-red-800"
-                  : "text-red-800 hover:text-red-600"
-              }`}
-              onClick={toggleLike}
-              aria-label="Like"
-              title="Like">
-              <Heart size={24} />
             </button>
 
             <button
@@ -364,7 +463,7 @@ export default function Player() {
             </button>
           </div>
 
-          <div className="flex items-center gap-2 text-red-700 cursor-pointer">
+          <div className="flex items-center gap-2 text-red-700">
             {renderVolumeIcon()}
             <input
               type="range"
