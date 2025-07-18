@@ -29,9 +29,17 @@ export default function Player() {
   const [isQueueOpen, setIsQueueOpen] = useState(false); // ✅ NEW
   const [volume, setVolumeState] = useState(1);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const currentSong = songs[currentIndex];
-
   const [bounceAnimation, setBounceAnimation] = useState(true);
+
+  useEffect(() => {
+    if (isQueueOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "auto";
+    }
+  }, [isQueueOpen]);
   useEffect(() => {
     if (!isPlaying) {
       setBounceAnimation(true);
@@ -209,19 +217,19 @@ export default function Player() {
   };
 
   // Touch gesture handlers
-  const touchStartX = useRef(0);
-  const touchEndX = useRef(0);
+  const touchStartY = useRef(0);
+  const touchEndY = useRef(0);
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = () => {
-    const distance = touchStartX.current - touchEndX.current;
+    const distance = touchStartY.current - touchEndY.current;
     if (distance > 70) {
       setIsQueueOpen(true);
     } else if (distance < -70) {
@@ -235,34 +243,50 @@ export default function Player() {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}>
+      {/* Overlay behind mobile queue */}
+      {isQueueOpen && (
+        <div
+          ref={overlayRef}
+          className="fixed inset-0 z-40 sm:hidden"
+          onClick={() => setIsQueueOpen(false)}></div>
+      )}
       {/* Mobile Queue Toggle Button */}
       {!isQueueOpen && (
         <button
-          className={`cursor-pointer fixed right-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-1 -rotate-90 text-red-900 font-bold px-3 py-2 rounded-full ${
+          className={`cursor-pointer fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1 -rotate-90 text-red-900 font-bold px-3 py-2 rounded-full ${
             bounceAnimation ? "animate-bounce" : ""
           } sm:hidden hover:text-red-600 hover:scale-110 transition-transform duration-200`}
           onClick={() => setIsQueueOpen(true)}>
-          <ChevronLeft className="w-5 h-5 -rotate-270" />
-          {/* <span className="tracking-widest">Queue </span> */}
+          <ChevronLeft className="w-5 h-5 rotate-180" />
+          {/* <span className="tracking-widest rotate-90">Queue </span> */}
         </button>
       )}
 
-      {/*Mobile Slide-In Queue */}
+      {/* Slide-In Mobile Queue Panel */}
       <div
-        className={`fixed top-0 bottom-0 right-0 w-3/4 sm:hidden bg-gradient-to-br from-yellow-100 via-red-200 to-red-400 text-red-900 p-6 border-l border-red-900 rounded-l-2xl shadow-2xl z-50 transform transition-transform duration-300 ${
-          isQueueOpen ? "translate-x-0" : "translate-x-full"
-        }`}>
-        <div className="relative w-full flex justify-between items-center mb-6 border-b border-red-300 pb-1">
+        className={`fixed bottom-0 left-0 w-full sm:hidden bg-gradient-to-br from-yellow-100 via-red-200 to-red-400 text-red-900 p-6 border-t border-red-900 rounded-t-2xl shadow-2xl z-50 transform transition-transform duration-300 ${
+          isQueueOpen ? "translate-y-0" : "translate-y-full"
+        }`}
+        style={{ height: "90vh" }}>
+        {/* Drag handle */}
+        <div className="w-full flex justify-center mb-2">
+          {/* <div className="w-12 h-1.5 rounded-full bg-red-600"></div> */}
+        </div>
+
+        {/* Queue Header */}
+        <div className="relative w-full flex justify-between items-center mt-0 mb-4 border-b border-red-300 pb-1">
           <h2 className="cursor-default text-xl font-bold tracking-wide">
             Queue
           </h2>
           <button
             onClick={() => setIsQueueOpen(false)}
-            className=" text-red-900 font-bold cursor-pointer hover:text-red-600 hover:scale-110 transition-transform duration-200">
+            className="text-red-900 font-bold cursor-pointer hover:text-red-600 hover:scale-110 transition-transform duration-200">
             <X size={24} />
           </button>
         </div>
-        <ul className="space-y-3 h-full overflow-y-auto pr-2">
+
+        {/* Scrollable Song List */}
+        <ul className="space-y-3 h-[75vh] overflow-y-auto pr-2">
           {songs.map((song, index) => (
             <li
               key={index}
@@ -278,9 +302,7 @@ export default function Player() {
                   ? "bg-yellow-400 text-black font-semibold shadow-md"
                   : "bg-white/20 hover:bg-white/70"
               }`}>
-              <div className="text-sm tracking-wide">
-                {song.title}
-              </div>
+              <div className="text-sm tracking-wide">{song.title}</div>
               <div className="text-xs text-red-700">{song.artist}</div>
             </li>
           ))}
@@ -308,9 +330,7 @@ export default function Player() {
                     ? "bg-yellow-400 text-black font-semibold shadow-md"
                     : "bg-white/20 hover:bg-white/70"
                 }`}>
-                <div className="text-sm tracking-wide">
-                  {song.title}
-                </div>
+                <div className="text-sm tracking-wide">{song.title}</div>
                 <div className="text-xs text-red-700">{song.artist}</div>
               </li>
             ))}
